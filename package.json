@@ -1,0 +1,15 @@
+{
+  "name": "real-state-agent",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "predev": "pnpm --filter @real-estate-agent/shared build",
+    "dev": "pnpm -r --parallel --filter @real-estate-agent/shared --filter @real-estate-agent/agent-core --filter @real-estate-agent/web-chat dev",
+    "dev:core": "pnpm --filter @real-estate-agent/shared build && pnpm --filter @real-estate-agent/agent-core dev",
+    "dev:web": "pnpm --filter @real-estate-agent/shared build && pnpm --filter @real-estate-agent/web-chat dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r clean"
+  }
+}
