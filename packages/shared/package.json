@@ -11,6 +11,9 @@
       "import": "./dist/index.js"
     }
   },
+  "dependencies": {
+    "zod": "^4.1.5"
+  },
   "scripts": {
     "dev": "tsup src/index.ts --format esm --dts --watch --clean=false",
     "build": "tsup src/index.ts --format esm --dts --out-dir dist --clean",

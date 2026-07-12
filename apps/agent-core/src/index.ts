@@ -6,6 +6,9 @@ import {
   projectLayout,
   salesStages
 } from "@real-estate-agent/shared";
+import { loadMonorepoEnv } from "./config/load-env";
+
+const envPath = loadMonorepoEnv(import.meta.url);
 
 const app = new Hono();
 
@@ -24,7 +27,8 @@ app.get("/api/v1/meta", (context) => {
   return context.json({
     app: appMetadata,
     salesStages,
-    projectLayout
+    projectLayout,
+    envPath
   });
 });
 

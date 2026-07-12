@@ -6,18 +6,25 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsup src/index.ts --format esm --platform node --target node20 --out-dir dist --clean",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "smoke:supabase": "tsx src/scripts/supabase-smoke-test.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.4",
     "@real-estate-agent/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.56.0",
+    "dotenv": "^16.6.1",
     "hono": "^4.9.8"
   },
   "devDependencies": {
     "@types/node": "^24.3.1",
     "tsup": "^8.5.0",
     "tsx": "^4.20.5",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   }
 }
