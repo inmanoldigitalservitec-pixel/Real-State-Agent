@@ -70,6 +70,61 @@ describe("OpenClawAgentClient", () => {
     });
   });
 
+  it("accepts null mediaUrl values returned by the real OpenClaw CLI", async () => {
+    const runner = createRunner({
+      exitCode: 0,
+      stdout: JSON.stringify({
+        runId: "internal-run-id",
+        status: "ok",
+        summary: "completed",
+        result: {
+          payloads: [
+            {
+              text: "Hola, encantado de ayudarte.",
+              mediaUrl: null
+            }
+          ],
+          meta: {
+            agentMeta: {
+              provider: "openai",
+              model: "hidden-model",
+              usage: {
+                total: 999
+              }
+            },
+            finalAssistantVisibleText:
+              "Hola, encantado de ayudarte.",
+            systemPromptReport: {
+              sessionKey:
+                "agent:real-estate-agent:web-secret",
+              workspaceDir: "/Users/inma/private"
+            }
+          }
+        }
+      }),
+      stderr:
+        "[state-migrations] Legacy state migration warnings",
+      timedOut: false
+    });
+
+    const client = new OpenClawAgentClient({ runner });
+
+    await expect(
+      client.sendMessage({
+        sessionId: "session_12345678",
+        message: "Hola"
+      })
+    ).resolves.toEqual({
+      message: "Hola, encantado de ayudarte.",
+      payloads: [
+        {
+          type: "text",
+          text: "Hola, encantado de ayudarte."
+        }
+      ]
+    });
+  });
+
   it("normalizes multiple text and media payloads", async () => {
     const runner = createRunner({
       exitCode: 0,

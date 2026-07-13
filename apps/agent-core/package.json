@@ -13,7 +13,8 @@
     "smoke:internal-api": "tsx src/scripts/internal-api-smoke-test.ts",
     "smoke:conversation-bootstrap": "tsx src/scripts/conversation-bootstrap-smoke-test.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "smoke:public-chat": "tsx src/scripts/public-chat-smoke-test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.4",

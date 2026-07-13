@@ -7,8 +7,8 @@ const DEFAULT_MAX_OUTPUT_BYTES = 1_048_576;
 
 const openClawPayloadSchema = z
   .object({
-    text: z.string().optional(),
-    mediaUrl: z.string().optional()
+    text: z.string().nullable().optional(),
+    mediaUrl: z.string().nullable().optional()
   })
   .passthrough();
 
