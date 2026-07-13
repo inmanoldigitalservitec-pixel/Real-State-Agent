@@ -2,15 +2,22 @@ import {
   conversationContextResultSchema,
   conversationMemorySchema,
   conversationStatePatchSchema,
+  messageResponseSchema,
+  resolveConversationInputSchema,
+  resolveConversationResultSchema,
   saveMessageInputSchema,
   type ConversationContextResult,
   type ConversationMemory,
+  type ResolveConversationInput,
+  type ResolveConversationResult,
   type ConversationStatePatch,
+  type MessageResponse,
   type SaveMessageInput
 } from "@real-estate-agent/shared";
 import type { Json } from "../infrastructure/supabase/types";
 import { ServiceException } from "../lib/errors/service-error";
 import type { ConversationRepository } from "../repositories/conversation.repository";
+import type { CompanyRepository } from "../repositories/company.repository";
 
 function mergeArrays<T>(existing: T[], incoming?: T[]): T[] {
   if (!incoming) {
@@ -21,7 +28,10 @@ function mergeArrays<T>(existing: T[], incoming?: T[]): T[] {
 }
 
 export class ConversationService {
-  constructor(private readonly conversationRepository: ConversationRepository) {}
+  constructor(
+    private readonly conversationRepository: ConversationRepository,
+    private readonly companyRepository?: CompanyRepository
+  ) {}
 
   async getConversationContext(conversationId: string, messageLimit = 20): Promise<ConversationContextResult> {
     const [conversation, state, messages] = await Promise.all([
@@ -178,8 +188,106 @@ export class ConversationService {
     });
   }
 
-  async saveMessage(input: SaveMessageInput) {
+  async resolveOrCreateConversation(input: ResolveConversationInput): Promise<ResolveConversationResult> {
+    const parsed = resolveConversationInputSchema.parse(input);
+
+    if (this.companyRepository) {
+      const company = await this.companyRepository.findCompanyById(parsed.companyId);
+
+      if (!company.active) {
+        throw new ServiceException("CONFLICT", `Company ${parsed.companyId} is not active`);
+      }
+    }
+
+    const existing = await this.conversationRepository.findByExternalSession({
+      companyId: parsed.companyId,
+      channel: parsed.channel,
+      externalSessionId: parsed.externalSessionId
+    });
+
+    if (existing) {
+      const state = await this.ensureInitialState(existing, parsed);
+
+      return resolveConversationResultSchema.parse({
+        conversationId: existing.id,
+        companyId: existing.company_id,
+        currentSalesStage: existing.current_sales_stage,
+        memoryVersion: state.memory_version,
+        created: false
+      });
+    }
+
+    let conversation;
+    let created = true;
+
+    try {
+      conversation = await this.conversationRepository.createConversation({
+        company_id: parsed.companyId,
+        channel: parsed.channel,
+        external_session_id: parsed.externalSessionId,
+        source_listing_id: parsed.sourceListingId,
+        source_property_id: parsed.sourcePropertyId,
+        source_property_unit_id: parsed.sourcePropertyUnitId,
+        current_sales_stage: "NEW",
+        status: "active",
+        metadata: parsed.metadata as Json | undefined
+      });
+    } catch (error) {
+      if (!isUniqueViolation(error)) {
+        throw error;
+      }
+
+      const raced = await this.conversationRepository.findByExternalSession({
+        companyId: parsed.companyId,
+        channel: parsed.channel,
+        externalSessionId: parsed.externalSessionId
+      });
+
+      if (!raced) {
+        throw error;
+      }
+
+      conversation = raced;
+      created = false;
+    }
+
+    const state = await this.ensureInitialState(conversation, parsed);
+
+    return resolveConversationResultSchema.parse({
+      conversationId: conversation.id,
+      companyId: conversation.company_id,
+      currentSalesStage: conversation.current_sales_stage,
+      memoryVersion: state.memory_version,
+      created
+    });
+  }
+
+  async saveMessage(input: SaveMessageInput): Promise<MessageResponse> {
     const parsed = saveMessageInputSchema.parse(input);
+    const conversation = await this.conversationRepository.findConversationById(parsed.conversationId);
+
+    if (conversation.company_id !== parsed.companyId) {
+      throw new ServiceException("CONFLICT", `Conversation ${parsed.conversationId} does not belong to company ${parsed.companyId}`);
+    }
+
+    if (parsed.clientMessageId) {
+      const existing = await this.conversationRepository.findMessageByClientMessageId(parsed.conversationId, parsed.clientMessageId);
+
+      if (existing) {
+        return messageResponseSchema.parse({
+          id: existing.id,
+          conversationId: existing.conversation_id,
+          companyId: existing.company_id,
+          role: existing.role,
+          content: existing.content,
+          salesStage: existing.sales_stage,
+          toolName: existing.tool_name,
+          assetIds: existing.asset_ids,
+          createdAt: existing.created_at
+        });
+      }
+    }
+
     const message = await this.conversationRepository.insertMessage({
       conversation_id: parsed.conversationId,
       company_id: parsed.companyId,
@@ -198,6 +306,60 @@ export class ConversationService {
       current_sales_stage: parsed.salesStage
     });
 
-    return message;
+    return messageResponseSchema.parse({
+      id: message.id,
+      conversationId: message.conversation_id,
+      companyId: message.company_id,
+      role: message.role,
+      content: message.content,
+      salesStage: message.sales_stage,
+      toolName: message.tool_name,
+      assetIds: message.asset_ids,
+      createdAt: message.created_at
+    });
   }
+
+  private async ensureInitialState(
+    conversation: Awaited<ReturnType<ConversationRepository["findConversationById"]>>,
+    input: ResolveConversationInput
+  ) {
+    const existing = await this.conversationRepository.findState(conversation.id);
+
+    if (existing) {
+      return existing;
+    }
+
+    try {
+      return await this.conversationRepository.createConversationState({
+        conversation_id: conversation.id,
+        company_id: conversation.company_id,
+        sales_stage: conversation.current_sales_stage,
+        source_channel: input.channel,
+        source_listing_id: input.sourceListingId ?? conversation.source_listing_id,
+        source_property_id: input.sourcePropertyId ?? conversation.source_property_id,
+        metadata: input.metadata as Json | undefined
+      });
+    } catch (error) {
+      if (!isUniqueViolation(error)) {
+        throw error;
+      }
+
+      const raced = await this.conversationRepository.findState(conversation.id);
+
+      if (!raced) {
+        throw error;
+      }
+
+      return raced;
+    }
+  }
+}
+
+function isUniqueViolation(error: unknown) {
+  return (
+    error instanceof ServiceException &&
+    error.code === "DATABASE_ERROR" &&
+    typeof error.details?.code === "string" &&
+    error.details.code === "23505"
+  );
 }

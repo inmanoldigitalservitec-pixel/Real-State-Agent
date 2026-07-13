@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeLocation, resolveLocationGroup } from "../domain/geography/location-groups";
 import type { Database, TableRow } from "../infrastructure/supabase/types";
 import { unwrapSupabase, unwrapSupabaseList } from "../lib/supabase-utils";
 
@@ -23,8 +24,9 @@ export class PropertyRepository {
     maximumPrice?: number;
     currency?: string;
     propertyType?: string;
-    availability?: string;
-    limit: number;
+      availability?: string;
+      amenities?: string[];
+      limit: number;
   }): Promise<Array<{ property: PropertyRecord; development: DevelopmentRecord; units: PropertyUnitRecord[] }>> {
     let query = this.supabase
       .from("properties")
@@ -60,9 +62,18 @@ export class PropertyRepository {
       "Unable to search properties"
     ) as Array<PropertyRecord & { development: DevelopmentRecord; units: PropertyUnitRecord[] }>;
 
-    const normalizedLocation = filters.location?.toLowerCase();
+    const normalizedLocation = filters.location ? normalizeLocation(filters.location) : undefined;
+    const locationGroup = filters.location ? resolveLocationGroup(filters.location) : null;
     const normalizedSector = filters.sector?.toLowerCase();
     const normalizedCity = filters.city?.toLowerCase();
+    const normalizedAmenities = filters.amenities?.map((item) => item.toLowerCase()) ?? [];
+    const amenitiesByScope: Array<Pick<PropertyAmenityRecord, "property_id" | "development_id" | "name">> =
+      normalizedAmenities.length > 0
+        ? unwrapSupabaseList(
+            await this.supabase.from("property_amenities").select("property_id, development_id, name"),
+            "Unable to load amenities for property search"
+          ) as Array<Pick<PropertyAmenityRecord, "property_id" | "development_id" | "name">>
+        : [];
 
     return rows
       .filter((row) => {
@@ -78,12 +89,21 @@ export class PropertyRepository {
         }
 
         if (normalizedLocation) {
-          const haystack = [row.name, row.development.location_label, row.development.sector, row.development.city]
+          const haystack = [
+            row.name,
+            row.development.location_label,
+            row.development.sector,
+            row.development.city,
+            row.development.province
+          ]
             .filter(Boolean)
             .join(" ")
-            .toLowerCase();
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+          const locationAliases = locationGroup ?? [normalizedLocation];
 
-          if (!haystack.includes(normalizedLocation)) {
+          if (!locationAliases.some((alias) => haystack.includes(alias))) {
             return false;
           }
         }
@@ -106,6 +126,27 @@ export class PropertyRepository {
 
         if (filters.availability && !row.units.some((unit) => unit.is_active && unit.status === filters.availability)) {
           return false;
+        }
+
+        if (normalizedAmenities.length > 0) {
+          const searchableAmenities = new Set(
+            [
+              ...row.features,
+              ...amenitiesByScope
+                .filter(
+                  (amenity) =>
+                    amenity.property_id === row.id ||
+                    amenity.development_id === row.development.id
+                )
+                .map((amenity) => amenity.name)
+            ]
+              .filter(Boolean)
+              .map((value) => value.toLowerCase())
+          );
+
+          if (!normalizedAmenities.every((amenity) => searchableAmenities.has(amenity))) {
+            return false;
+          }
         }
 
         return true;
@@ -154,6 +195,13 @@ export class PropertyRepository {
         .eq("is_active", true)
         .order("unit_number", { ascending: true }),
       `Unable to list units for property ${propertyId}`
+    );
+  }
+
+  async findUnitById(unitId: string): Promise<PropertyUnitRecord> {
+    return unwrapSupabase(
+      await this.supabase.from("property_units").select("*").eq("id", unitId).single(),
+      `Unit ${unitId} not found`
     );
   }
 

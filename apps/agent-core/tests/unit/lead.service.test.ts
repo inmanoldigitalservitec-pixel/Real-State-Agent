@@ -8,11 +8,11 @@ describe("LeadService", () => {
     const service = new LeadService({
       async findExistingLead() {
         return {
-          id: "lead-1",
-          company_id: "company",
-          conversation_id: "conversation",
+          id: "11111111-1111-1111-1111-111111111111",
+          company_id: "55555555-5555-5555-5555-555555555555",
+          conversation_id: "66666666-6666-6666-6666-666666666666",
           source_listing_id: null,
-          source_property_id: "property",
+          source_property_id: "77777777-7777-7777-7777-777777777777",
           source_property_unit_id: null,
           full_name: "Laura",
           phone: "809",
@@ -36,10 +36,39 @@ describe("LeadService", () => {
       },
       async update() {
         updated = true;
-        return { id: "lead-1" };
+        return {
+          id: "11111111-1111-1111-1111-111111111111",
+          company_id: "55555555-5555-5555-5555-555555555555",
+          conversation_id: "66666666-6666-6666-6666-666666666666",
+          source_listing_id: null,
+          source_property_id: "77777777-7777-7777-7777-777777777777",
+          source_property_unit_id: null,
+          full_name: "Laura Perez",
+          phone: "809-555-0000",
+          email: null,
+          preferred_contact_method: "whatsapp",
+          preferred_locations: [],
+          maximum_budget: null,
+          currency: null,
+          purchase_purpose: null,
+          financing_required: null,
+          lead_temperature: "warm",
+          sales_stage: "INQUIRY",
+          status: "new",
+          interest_summary: null,
+          handed_off_to: null,
+          handoff_reason: null,
+          metadata: {},
+          created_at: "2026-07-12T00:00:00.000Z",
+          updated_at: "2026-07-12T00:00:00.000Z"
+        };
       },
       async insert() {
         throw new Error("insert should not be called");
+      }
+    } as never, {
+      async validate() {
+        return {};
       }
     } as never);
 

@@ -6,11 +6,13 @@ export class PropertyMediaService {
 
   async getPropertyMedia(params: {
     propertyId: string;
+    unitId?: string;
     categories?: AssetCategory[];
     limit?: number;
   }): Promise<PropertyMediaItem[]> {
     const rows = await this.mediaRepository.findByScope({
       propertyId: params.propertyId,
+      unitId: params.unitId,
       categories: params.categories,
       limit: params.limit ?? 10
     });

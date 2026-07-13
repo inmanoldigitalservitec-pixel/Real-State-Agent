@@ -4,12 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsup src/index.ts --format esm --platform node --target node20 --out-dir dist --clean",
+    "dev": "tsx watch src/server.ts",
+    "build": "tsup src/index.ts src/server.ts --format esm --platform node --target node20 --out-dir dist --clean",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "smoke:supabase": "tsx src/scripts/supabase-smoke-test.ts",
+    "smoke:internal-api": "tsx src/scripts/internal-api-smoke-test.ts",
+    "smoke:conversation-bootstrap": "tsx src/scripts/conversation-bootstrap-smoke-test.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "clean": "rm -rf dist"
   },
@@ -18,7 +20,8 @@
     "@real-estate-agent/shared": "workspace:*",
     "@supabase/supabase-js": "^2.56.0",
     "dotenv": "^16.6.1",
-    "hono": "^4.9.8"
+    "hono": "^4.9.8",
+    "zod": "^4.1.5"
   },
   "devDependencies": {
     "@types/node": "^24.3.1",

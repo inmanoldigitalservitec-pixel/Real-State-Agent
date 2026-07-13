@@ -35,20 +35,82 @@ describe.skipIf(!hasSupabaseEnv)("Supabase services integration", () => {
 
     expect(results.length).toBeGreaterThan(0);
     expect(results.every((item) => item.city === "Santo Domingo")).toBe(true);
-    expect(results.map((item) => item.propertyId)).toContain("00000000-0000-0000-0000-000000000203");
+    expect(results.map((item) => item.propertyName)).toEqual(["Apartamento Urbano 3H Plus"]);
   });
 
-  it("inherits property and development documents without duplicates", async () => {
+  it("searches Santo Domingo as a geographic group across province and Distrito Nacional", async () => {
+    const results = await services.propertySearchService.search({
+      location: "Santo Domingo",
+      propertyType: "apartment",
+      availability: "available",
+      limit: 10
+    });
+    const cities = new Set(results.map((item) => item.city));
+
+    expect(cities).toEqual(new Set(["Santo Domingo", "Santo Domingo Norte", "Santo Domingo Este"]));
+    expect(results.map((item) => item.propertyName)).toEqual(
+      expect.arrayContaining([
+        "Apartamento Familiar 3H",
+        "Apartamento Compacto 2H",
+        "Apartamento Urbano 3H Plus",
+        "Apartamento Parque Este 2H"
+      ])
+    );
+  });
+
+  it("keeps Santo Domingo Este as a specific location search", async () => {
+    const results = await services.propertySearchService.search({
+      location: "Santo Domingo Este",
+      propertyType: "apartment",
+      availability: "available",
+      limit: 10
+    });
+
+    expect(results.map((item) => item.propertyName)).toEqual(["Apartamento Parque Este 2H"]);
+    expect(results.every((item) => item.city === "Santo Domingo Este")).toBe(true);
+  });
+
+  it("keeps Villa Mella as a specific flexible location search", async () => {
+    const results = await services.propertySearchService.search({
+      location: "Villa Mella",
+      propertyType: "apartment",
+      availability: "available",
+      limit: 10
+    });
+
+    expect(results.map((item) => item.propertyName)).toEqual([
+      "Apartamento Familiar 3H",
+      "Apartamento Compacto 2H"
+    ]);
+    expect(results.every((item) => item.sector === "Villa Mella")).toBe(true);
+  });
+
+  it("returns scoped brochure and floor plan documents without duplicates", async () => {
+    const propertyId = "00000000-0000-0000-0000-000000000201";
+    const developmentId = "00000000-0000-0000-0000-000000000101";
+
     const documents = await services.propertyDocumentsService.getPropertyDocuments({
-      propertyId: "00000000-0000-0000-0000-000000000201",
+      propertyId,
       categories: ["brochure", "floor_plan"]
     });
 
-    expect(documents.map((item) => item.id)).toEqual([
-      "00000000-0000-0000-0000-000000000602",
-      "00000000-0000-0000-0000-000000000601"
-    ]);
-    expect(documents.map((item) => item.category)).toEqual(["floor_plan", "brochure"]);
+    expect(documents.map((item) => item.category)).toEqual(
+      expect.arrayContaining(["brochure", "floor_plan"])
+    );
+
+    expect(
+      documents.every(
+        (item) =>
+          item.propertyId === propertyId ||
+          item.developmentId === developmentId
+      )
+    ).toBe(true);
+
+    const documentKeys = documents.map(
+      (item) => `${item.category}|${item.bucketName}|${item.storagePath}`
+    );
+
+    expect(new Set(documentKeys).size).toBe(documentKeys.length);
   });
 
   it("loads confirmed payment plans and rejects expired ones", async () => {

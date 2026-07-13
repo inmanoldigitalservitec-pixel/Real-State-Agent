@@ -73,6 +73,10 @@ export const messageRoleValues = ["system", "assistant", "user", "tool", "human_
 export const messageRoleSchema = z.enum(messageRoleValues);
 export type MessageRole = z.infer<typeof messageRoleSchema>;
 
+export const conversationChannelValues = ["web"] as const;
+export const conversationChannelSchema = z.enum(conversationChannelValues);
+export type ConversationChannel = z.infer<typeof conversationChannelSchema>;
+
 export const uuidSchema = z
   .string()
   .trim()
@@ -114,6 +118,7 @@ export function createHealthPayload(service: HealthPayload["service"]): HealthPa
 }
 
 export const serviceErrorCodeValues = [
+  "UNAUTHORIZED",
   "CONFIGURATION_ERROR",
   "VALIDATION_ERROR",
   "NOT_FOUND",
@@ -133,6 +138,7 @@ export const serviceErrorSchema = z.object({
 export type ServiceError = z.infer<typeof serviceErrorSchema>;
 
 export const propertySearchInputSchema = z.object({
+  companyId: uuidSchema.optional(),
   location: optionalTrimmedString,
   sector: optionalTrimmedString,
   city: optionalTrimmedString,
@@ -149,6 +155,59 @@ export const propertySearchInputSchema = z.object({
 });
 
 export type PropertySearchInput = z.input<typeof propertySearchInputSchema>;
+
+export const apiFailureSchema = z.object({
+  success: z.literal(false),
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+    retryable: z.boolean(),
+    requiresClarification: z.boolean(),
+    requiresHuman: z.boolean()
+  })
+});
+
+export type ApiFailure = z.infer<typeof apiFailureSchema>;
+
+export function createApiSuccessSchema<T extends z.ZodTypeAny>(dataSchema: T) {
+  return z.object({
+    success: z.literal(true),
+    data: dataSchema,
+    metadata: z.object({
+      verifiedAt: isoDatetimeSchema
+    })
+  });
+}
+
+export type ApiSuccess<T> = {
+  success: true;
+  data: T;
+  metadata: {
+    verifiedAt: string;
+  };
+};
+
+export const propertyIdPathParamsSchema = z.object({
+  propertyId: uuidSchema
+});
+
+export const companyIdPathParamsSchema = z.object({
+  companyId: uuidSchema
+});
+
+export const conversationIdPathParamsSchema = z.object({
+  conversationId: uuidSchema
+});
+
+export const getPropertyDetailsInputSchema = propertyIdPathParamsSchema;
+export const checkPropertyAvailabilityInputSchema = propertyIdPathParamsSchema;
+
+export const getPropertyMediaInputSchema = z.object({
+  propertyId: uuidSchema,
+  unitId: uuidSchema.optional(),
+  categories: z.array(assetCategorySchema).optional(),
+  limit: z.number().int().positive().max(10).default(10)
+});
 
 export const propertySearchResultSchema = z.object({
   propertyId: uuidSchema,
@@ -267,6 +326,19 @@ export const propertyAvailabilityResultSchema = z.object({
 
 export type PropertyAvailabilityResult = z.infer<typeof propertyAvailabilityResultSchema>;
 
+export const publicPropertyMediaItemSchema = z.object({
+  id: uuidSchema,
+  category: assetCategorySchema,
+  altText: z.string().nullable(),
+  caption: z.string().nullable(),
+  publicUrl: z.string().nullable(),
+  mimeType: z.string().nullable(),
+  sortOrder: z.number().int(),
+  verifiedAt: isoDatetimeSchema.nullable()
+});
+
+export type PublicPropertyMediaItem = z.infer<typeof publicPropertyMediaItemSchema>;
+
 export const propertyMediaItemSchema = z.object({
   id: uuidSchema,
   propertyId: uuidSchema.nullable(),
@@ -300,6 +372,11 @@ export const propertyDocumentsInputSchema = z.object({
 
 export type PropertyDocumentsInput = z.input<typeof propertyDocumentsInputSchema>;
 
+export const getPaymentPlanInputSchema = z.object({
+  propertyId: uuidSchema,
+  unitId: uuidSchema.optional()
+});
+
 export const propertyDocumentSchema = z.object({
   id: uuidSchema,
   propertyId: uuidSchema.nullable(),
@@ -318,6 +395,19 @@ export const propertyDocumentSchema = z.object({
 });
 
 export type PropertyDocument = z.infer<typeof propertyDocumentSchema>;
+
+export const publicPropertyDocumentSchema = z.object({
+  id: uuidSchema,
+  category: assetCategorySchema,
+  title: z.string(),
+  publicUrl: z.string().nullable(),
+  mimeType: z.string().nullable(),
+  sortOrder: z.number().int(),
+  expiresAt: z.string().nullable(),
+  verifiedAt: isoDatetimeSchema.nullable()
+});
+
+export type PublicPropertyDocument = z.infer<typeof publicPropertyDocumentSchema>;
 
 export const paymentPlanInstallmentSchema = z.object({
   id: uuidSchema,
@@ -388,6 +478,8 @@ export const companyInformationResultSchema = z.object({
 
 export type CompanyInformationResult = z.infer<typeof companyInformationResultSchema>;
 
+export const getCompanyInformationInputSchema = companyIdPathParamsSchema;
+
 export const conversationMemorySchema = z.object({
   conversationId: uuidSchema,
   companyId: uuidSchema,
@@ -427,7 +519,7 @@ export const conversationMemorySchema = z.object({
   lastAgentQuestion: z.string().nullable(),
   pendingQuestion: z.string().nullable(),
   conversationSummary: z.string().nullable(),
-  sourceChannel: z.enum(["web"]),
+  sourceChannel: conversationChannelSchema,
   sourceListingId: uuidSchema.nullable(),
   sourcePropertyId: uuidSchema.nullable(),
   visitRequested: z.boolean(),
@@ -440,6 +532,36 @@ export const conversationMemorySchema = z.object({
 });
 
 export type ConversationMemory = z.infer<typeof conversationMemorySchema>;
+
+export const resolveConversationMetadataSchema = z
+  .object({
+    runId: z.string().trim().min(1).max(120).optional()
+  })
+  .strict();
+
+export const resolveConversationInputSchema = z
+  .object({
+    companyId: uuidSchema,
+    channel: conversationChannelSchema,
+    externalSessionId: z.string().trim().min(1).max(256),
+    sourceListingId: uuidSchema.optional(),
+    sourcePropertyId: uuidSchema.optional(),
+    sourcePropertyUnitId: uuidSchema.optional(),
+    metadata: resolveConversationMetadataSchema.optional()
+  })
+  .strict();
+
+export type ResolveConversationInput = z.input<typeof resolveConversationInputSchema>;
+
+export const resolveConversationResultSchema = z.object({
+  conversationId: uuidSchema,
+  companyId: uuidSchema,
+  currentSalesStage: salesStageSchema,
+  memoryVersion: z.number().int().positive(),
+  created: z.boolean()
+});
+
+export type ResolveConversationResult = z.infer<typeof resolveConversationResultSchema>;
 
 export const conversationStatePatchSchema = z
   .object({
@@ -516,6 +638,25 @@ export const conversationContextResultSchema = z.object({
 
 export type ConversationContextResult = z.infer<typeof conversationContextResultSchema>;
 
+export const getConversationContextInputSchema = z.object({
+  conversationId: uuidSchema,
+  messageLimit: z.coerce.number().int().positive().max(50).default(20)
+});
+
+export const messageResponseSchema = z.object({
+  id: uuidSchema,
+  conversationId: uuidSchema,
+  companyId: uuidSchema,
+  role: messageRoleSchema,
+  content: z.string(),
+  salesStage: salesStageSchema.nullable(),
+  toolName: z.string().nullable(),
+  assetIds: z.array(uuidSchema),
+  createdAt: isoDatetimeSchema
+});
+
+export type MessageResponse = z.infer<typeof messageResponseSchema>;
+
 export const saveMessageInputSchema = z.object({
   conversationId: uuidSchema,
   companyId: uuidSchema,
@@ -530,6 +671,31 @@ export const saveMessageInputSchema = z.object({
 });
 
 export type SaveMessageInput = z.input<typeof saveMessageInputSchema>;
+
+export const leadResponseSchema = z.object({
+  id: uuidSchema,
+  companyId: uuidSchema,
+  conversationId: uuidSchema.nullable(),
+  sourcePropertyId: uuidSchema.nullable(),
+  sourcePropertyUnitId: uuidSchema.nullable(),
+  sourceListingId: uuidSchema.nullable(),
+  fullName: z.string().nullable(),
+  phone: z.string().nullable(),
+  email: z.string().nullable(),
+  preferredContactMethod: z.string().nullable(),
+  preferredLocations: z.array(z.string()),
+  maximumBudget: z.number().nullable(),
+  currency: z.string().nullable(),
+  purchasePurpose: z.string().nullable(),
+  financingRequired: z.boolean().nullable(),
+  leadTemperature: leadTemperatureSchema,
+  salesStage: salesStageSchema,
+  handoffReason: handoffReasonSchema.nullable(),
+  createdAt: isoDatetimeSchema,
+  updatedAt: isoDatetimeSchema
+});
+
+export type LeadResponse = z.infer<typeof leadResponseSchema>;
 
 export const leadCaptureInputSchema = z.object({
   companyId: uuidSchema,
@@ -555,6 +721,28 @@ export const leadCaptureInputSchema = z.object({
 
 export type LeadCaptureInput = z.input<typeof leadCaptureInputSchema>;
 
+export const visitResponseSchema = z.object({
+  id: uuidSchema,
+  companyId: uuidSchema,
+  conversationId: uuidSchema.nullable(),
+  leadId: uuidSchema.nullable(),
+  developmentId: uuidSchema.nullable(),
+  propertyId: uuidSchema.nullable(),
+  propertyUnitId: uuidSchema.nullable(),
+  customerName: z.string(),
+  phone: z.string(),
+  email: z.string().nullable(),
+  preferredDate: z.string().nullable(),
+  preferredTimeWindow: z.string().nullable(),
+  status: z.string(),
+  handoffRequired: z.boolean(),
+  assignedAgent: z.string().nullable(),
+  createdAt: isoDatetimeSchema,
+  updatedAt: isoDatetimeSchema
+});
+
+export type VisitResponse = z.infer<typeof visitResponseSchema>;
+
 export const visitRequestInputSchema = z.object({
   companyId: uuidSchema,
   conversationId: uuidSchema.optional(),
@@ -568,7 +756,46 @@ export const visitRequestInputSchema = z.object({
   preferredDate: z.string().date().optional(),
   preferredTimeWindow: z.string().trim().min(1).optional(),
   notes: z.string().trim().min(1).optional(),
-  assignedAgent: z.string().trim().min(1).optional()
+  assignedAgent: z.string().trim().min(1).optional(),
+  idempotencyKey: z.string().trim().min(1).max(120).optional()
 });
 
 export type VisitRequestInput = z.input<typeof visitRequestInputSchema>;
+
+export const humanHandoffContactSnapshotSchema = z
+  .object({
+    fullName: z.string().trim().min(1).optional(),
+    phone: z.string().trim().min(1).optional(),
+    email: z.string().trim().email().optional(),
+    preferredContactMethod: z.string().trim().min(1).optional()
+  })
+  .strict();
+
+export const humanHandoffInputSchema = z.object({
+  companyId: uuidSchema,
+  conversationId: uuidSchema,
+  reason: handoffReasonSchema,
+  note: z.string().trim().min(1).optional(),
+  propertyId: uuidSchema.optional(),
+  unitId: uuidSchema.optional(),
+  listingId: uuidSchema.optional(),
+  contact: humanHandoffContactSnapshotSchema.optional(),
+  idempotencyKey: z.string().trim().min(1).max(120).optional()
+});
+
+export type HumanHandoffInput = z.input<typeof humanHandoffInputSchema>;
+
+export const humanHandoffResponseSchema = z.object({
+  eventId: uuidSchema,
+  companyId: uuidSchema,
+  conversationId: uuidSchema,
+  salesStage: salesStageSchema,
+  handoffRequested: z.boolean(),
+  handoffReason: handoffReasonSchema,
+  leadId: uuidSchema.nullable(),
+  createdLead: z.boolean(),
+  note: z.string().nullable(),
+  createdAt: isoDatetimeSchema
+});
+
+export type HumanHandoffResponse = z.infer<typeof humanHandoffResponseSchema>;

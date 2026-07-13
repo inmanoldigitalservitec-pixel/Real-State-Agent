@@ -10,7 +10,9 @@ import { PropertyRepository } from "../repositories/property.repository";
 import { VisitRepository } from "../repositories/visit.repository";
 import { CompanyInformationService } from "./company-information.service";
 import { ConversationService } from "./conversation.service";
+import { HumanHandoffService } from "./human-handoff.service";
 import { LeadService } from "./lead.service";
+import { OwnershipValidator } from "./ownership-validator";
 import { PaymentPlanService } from "./payment-plan.service";
 import { PropertyAvailabilityService } from "./property-availability.service";
 import { PropertyDetailsService } from "./property-details.service";
@@ -32,6 +34,7 @@ export function createAgentCoreServices() {
   const leadRepository = new LeadRepository(supabase);
   const visitRepository = new VisitRepository(supabase);
   const eventRepository = new EventRepository(supabase);
+  const ownershipValidator = new OwnershipValidator(conversationRepository, propertyRepository);
 
   return {
     repositories: {
@@ -54,9 +57,15 @@ export function createAgentCoreServices() {
       propertyDocumentsService: new PropertyDocumentsService(documentRepository, propertyRepository),
       paymentPlanService: new PaymentPlanService(paymentPlanRepository),
       companyInformationService: new CompanyInformationService(companyRepository),
-      conversationService: new ConversationService(conversationRepository),
-      leadService: new LeadService(leadRepository),
-      visitService: new VisitService(visitRepository)
+      conversationService: new ConversationService(conversationRepository, companyRepository),
+      leadService: new LeadService(leadRepository, ownershipValidator),
+      visitService: new VisitService(visitRepository, ownershipValidator),
+      humanHandoffService: new HumanHandoffService(
+        conversationRepository,
+        leadRepository,
+        eventRepository,
+        ownershipValidator
+      )
     }
   };
 }

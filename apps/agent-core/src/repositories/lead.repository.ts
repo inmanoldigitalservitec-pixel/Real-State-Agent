@@ -31,6 +31,26 @@ export class LeadRepository {
     return result.data;
   }
 
+  async findByContact(companyId: string, params: { phone?: string; email?: string }): Promise<LeadRecord | null> {
+    let query = this.supabase.from("leads").select("*").eq("company_id", companyId).limit(1);
+
+    if (params.phone) {
+      query = query.eq("phone", params.phone);
+    } else if (params.email) {
+      query = query.eq("email", params.email);
+    } else {
+      return null;
+    }
+
+    const result = await query.maybeSingle();
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    return result.data;
+  }
+
   async insert(payload: TableInsert<"leads">): Promise<LeadRecord> {
     return unwrapSupabase(
       await this.supabase.from("leads").insert(payload as never).select("*").single(),

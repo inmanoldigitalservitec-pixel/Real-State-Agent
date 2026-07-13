@@ -21,12 +21,17 @@ export class MediaRepository {
       .order("sort_order", { ascending: true })
       .limit(params.limit ?? 20);
 
-    if (params.propertyId) {
-      query = query.eq("property_id", params.propertyId);
-    } else if (params.unitId) {
-      query = query.eq("property_unit_id", params.unitId);
-    } else if (params.developmentId) {
-      query = query.eq("development_id", params.developmentId);
+    const scopeFilters = [
+      params.unitId ? `property_unit_id.eq.${params.unitId}` : null,
+      params.propertyId ? `property_id.eq.${params.propertyId}` : null,
+      params.developmentId ? `development_id.eq.${params.developmentId}` : null
+    ].filter((value): value is string => Boolean(value));
+
+    if (scopeFilters.length === 1) {
+      const [field, value] = scopeFilters[0].split(".eq.");
+      query = query.eq(field as "property_unit_id" | "property_id" | "development_id", value);
+    } else if (scopeFilters.length > 1) {
+      query = query.or(scopeFilters.join(","));
     }
 
     if (params.categories?.length) {
