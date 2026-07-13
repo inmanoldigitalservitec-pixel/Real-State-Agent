@@ -4,6 +4,16 @@ import { createAgentCoreServices } from "./services";
 import { installErrorHandler, HttpError } from "./middleware/error-handler";
 import { internalAuthMiddleware } from "./middleware/internal-auth";
 import { buildInternalRoutes } from "./routes/internal";
+import { buildPublicRoutes } from "./routes/public";
+import {
+  OpenClawAgentClient
+} from "./integrations/openclaw/openclaw-agent.client";
+import {
+  PublicChatService
+} from "./services/public-chat.service";
+import type {
+  PublicChatRouteService
+} from "./routes/public/chat";
 
 export type AppServices = ReturnType<typeof createAgentCoreServices>["services"];
 
@@ -43,7 +53,12 @@ function bodySizeLimitMiddleware(maxSizeBytes: number) {
   return middleware;
 }
 
-export function createApp(services: AppServices = createAgentCoreServices().services) {
+export function createApp(
+  services: AppServices = createAgentCoreServices().services,
+  publicChatService: PublicChatRouteService = new PublicChatService(
+    new OpenClawAgentClient()
+  )
+) {
   const app = new Hono();
 
   installErrorHandler(app);
@@ -51,6 +66,8 @@ export function createApp(services: AppServices = createAgentCoreServices().serv
   app.get("/health", (context) => {
     return context.json(createHealthPayload("agent-core"));
   });
+
+  app.route("/public", buildPublicRoutes(publicChatService));
 
   app.use("/internal/*", bodySizeLimitMiddleware(32 * 1024));
   app.use("/internal/*", timeoutMiddleware(10_000));
