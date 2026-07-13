@@ -122,6 +122,43 @@ POST /public/chat
 
 Nunca debe llamar directamente a OpenClaw Gateway ni a `/internal/*`.
 
+### Configuración Local del Frontend
+
+Archivo local:
+
+```text
+apps/web-chat/.env.local
+```
+
+Ejemplo local:
+
+```env
+VITE_AGENT_CORE_URL=http://127.0.0.1:8787
+```
+
+Ejemplo con Quick Tunnel:
+
+```env
+VITE_AGENT_CORE_URL=https://BACKEND-TEMPORAL.trycloudflare.com
+```
+
+Vite carga las variables `VITE_*` al iniciar. Reinicia el servidor de desarrollo después de modificar `.env.local`.
+
+`apps/web-chat/.env.local` está cubierto por `.gitignore` y no debe versionarse.
+
+No guardes URLs temporales concretas de `trycloudflare.com` en documentos, código ni archivos versionados.
+
+### CORS Para Frontend Temporal
+
+Cuando el frontend se publique mediante un segundo Quick Tunnel:
+
+```env
+PUBLIC_CHAT_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,https://FRONTEND-TEMPORAL.trycloudflare.com
+```
+
+El origen debe coincidir exactamente con el que aparece en el navegador.
+
+
 ## Supabase
 
 ```env

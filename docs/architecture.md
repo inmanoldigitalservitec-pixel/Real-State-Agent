@@ -92,6 +92,50 @@ POST /internal/visits
 POST /internal/handoffs
 ```
 
+## Web Chat
+
+La interfaz vive en:
+
+```text
+apps/web-chat
+```
+
+Flujo del navegador:
+
+```text
+Usuario
+  -> React Web Chat
+  -> GET /public/health
+  -> POST /public/chat
+  -> Agent Core
+  -> OpenClaw
+  -> Carlos
+```
+
+El frontend no conoce la sesión interna de OpenClaw. Solo conserva el identificador público devuelto por Agent Core:
+
+```text
+real-estate-agent-public-session-id
+```
+
+La persistencia usa `localStorage`. Al seleccionar “Nueva conversación”, el frontend elimina ese identificador y el siguiente mensaje crea una sesión nueva.
+
+El frontend valida las respuestas mediante los contratos compartidos:
+
+```text
+publicHealthResponseSchema
+publicChatResponseSchema
+```
+
+La URL de Agent Core se resuelve desde:
+
+```text
+VITE_AGENT_CORE_URL
+```
+
+y usa `http://127.0.0.1:8787` como fallback local.
+
+
 ## OpenClaw Agent Client
 
 Archivo:

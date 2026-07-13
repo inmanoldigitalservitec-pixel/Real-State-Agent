@@ -141,6 +141,59 @@ Resultado esperado:
 }
 ```
 
+## Web Chat
+
+Typecheck:
+
+```bash
+pnpm --filter @real-estate-agent/web-chat typecheck
+```
+
+Build de producción:
+
+```bash
+pnpm --filter @real-estate-agent/web-chat build
+```
+
+Prueba manual mínima:
+
+1. abrir la interfaz;
+2. confirmar estado “Disponible”;
+3. enviar un primer mensaje;
+4. confirmar respuesta de Carlos;
+5. enviar un segundo mensaje;
+6. comprobar continuidad contextual;
+7. recargar la página;
+8. confirmar que el `sessionId` continúa en `localStorage`;
+9. seleccionar “Nueva conversación”;
+10. confirmar que el identificador anterior fue eliminado.
+
+Claves esperadas en almacenamiento:
+
+```text
+real-estate-agent-public-session-id
+```
+
+Verificaciones de interfaz:
+
+- Enter envía;
+- Shift+Enter crea una nueva línea;
+- el botón se deshabilita mientras se procesa;
+- aparece el indicador de escritura;
+- los errores se muestran sin metadata interna;
+- el diseño funciona en escritorio y móvil.
+
+## Prueba Manual Con Quick Tunnels
+
+Con backend y frontend publicados temporalmente:
+
+1. abrir la URL del frontend desde otro dispositivo;
+2. confirmar que `/public/health` no falla por CORS;
+3. enviar dos mensajes;
+4. verificar continuidad de sesión;
+5. confirmar que ninguna respuesta expone metadata interna.
+
+
 ## Plugin OpenClaw
 
 ```bash

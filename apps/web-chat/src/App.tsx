@@ -1,103 +1,382 @@
-import { useEffect, useState } from "react";
-import { appMetadata, salesStages, type HealthPayload } from "@real-estate-agent/shared";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  publicChatResponseSchema,
+  publicHealthResponseSchema,
+  type PublicChatPayload
+} from "@real-estate-agent/shared";
 
-const agentCoreUrl = import.meta.env.VITE_AGENT_CORE_URL ?? "http://localhost:8787";
+const agentCoreUrl = (
+  import.meta.env.VITE_AGENT_CORE_URL ??
+  "http://127.0.0.1:8787"
+).replace(/\/+$/, "");
+
+const sessionStorageKey = "real-estate-agent-public-session-id";
+
+type ChatMessage = {
+  id: string;
+  role: "assistant" | "user";
+  text: string;
+  payloads?: PublicChatPayload[];
+};
+
+function createMessageId(): string {
+  return crypto.randomUUID();
+}
+
+function getSavedSessionId(): string | undefined {
+  try {
+    return localStorage.getItem(sessionStorageKey) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function saveSessionId(sessionId: string): void {
+  try {
+    localStorage.setItem(sessionStorageKey, sessionId);
+  } catch {
+    // The conversation still works if browser storage is unavailable.
+  }
+}
+
+function clearSavedSessionId(): void {
+  try {
+    localStorage.removeItem(sessionStorageKey);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function MessageText({ text }: { text: string }) {
+  const parts = useMemo(
+    () => text.split(/(https?:\/\/[^\s]+)/g),
+    [text]
+  );
+
+  return (
+    <div className="message-text">
+      {parts.map((part, index) =>
+        /^https?:\/\//i.test(part) ? (
+          <a
+            key={`${part}-${index}`}
+            href={part}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Ver enlace
+          </a>
+        ) : (
+          <span key={`${part}-${index}`}>{part}</span>
+        )
+      )}
+    </div>
+  );
+}
 
 export default function App() {
-  const [health, setHealth] = useState<HealthPayload | null>(null);
-  const [status, setStatus] = useState<"idle" | "online" | "offline">("idle");
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: createMessageId(),
+      role: "assistant",
+      text:
+        "Hola, soy Carlos. Cuéntame qué tipo de propiedad buscas, en qué zona y cuál es tu presupuesto."
+    }
+  ]);
+  const [input, setInput] = useState("");
+  const [sessionId, setSessionId] = useState<string | undefined>(
+    getSavedSessionId
+  );
+  const [healthStatus, setHealthStatus] = useState<
+    "checking" | "online" | "offline"
+  >("checking");
+  const [isSending, setIsSending] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadHealth() {
+    async function checkHealth() {
       try {
-        const response = await fetch(`${agentCoreUrl}/health`);
+        const response = await fetch(
+          `${agentCoreUrl}/public/health`,
+          {
+            headers: {
+              Accept: "application/json"
+            }
+          }
+        );
 
         if (!response.ok) {
           throw new Error(`Unexpected status ${response.status}`);
         }
 
-        const payload = (await response.json()) as HealthPayload;
+        const payload = publicHealthResponseSchema.parse(
+          await response.json()
+        );
 
-        if (!cancelled) {
-          setHealth(payload);
-          setStatus("online");
+        if (!cancelled && payload.data.status === "ok") {
+          setHealthStatus("online");
         }
       } catch {
         if (!cancelled) {
-          setStatus("offline");
+          setHealthStatus("offline");
         }
       }
     }
 
-    void loadHealth();
+    void checkHealth();
 
     return () => {
       cancelled = true;
     };
   }, []);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth"
+    });
+  }, [messages, isSending]);
+
+  async function sendMessage(): Promise<void> {
+    const message = input.trim();
+
+    if (!message || isSending) {
+      return;
+    }
+
+    const userMessage: ChatMessage = {
+      id: createMessageId(),
+      role: "user",
+      text: message
+    };
+
+    setMessages((current) => [...current, userMessage]);
+    setInput("");
+    setIsSending(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch(
+        `${agentCoreUrl}/public/chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            ...(sessionId ? { sessionId } : {}),
+            message
+          })
+        }
+      );
+
+      const body: unknown = await response.json();
+
+      if (!response.ok) {
+        const publicError =
+          typeof body === "object" &&
+          body !== null &&
+          "error" in body &&
+          typeof body.error === "object" &&
+          body.error !== null &&
+          "message" in body.error &&
+          typeof body.error.message === "string"
+            ? body.error.message
+            : "No fue posible contactar a Carlos.";
+
+        throw new Error(publicError);
+      }
+
+      const parsed = publicChatResponseSchema.parse(body);
+
+      setSessionId(parsed.data.sessionId);
+      saveSessionId(parsed.data.sessionId);
+
+      setMessages((current) => [
+        ...current,
+        {
+          id: createMessageId(),
+          role: "assistant",
+          text: parsed.data.message,
+          payloads: parsed.data.payloads
+        }
+      ]);
+
+      setHealthStatus("online");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error inesperado."
+      );
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  function startNewConversation(): void {
+    clearSavedSessionId();
+    setSessionId(undefined);
+    setErrorMessage(null);
+    setMessages([
+      {
+        id: createMessageId(),
+        role: "assistant",
+        text:
+          "Iniciamos una conversación nueva. ¿Qué tipo de propiedad estás buscando?"
+      }
+    ]);
+  }
+
   return (
     <main className="app-shell">
-      <section className="hero-card">
-        <p className="eyebrow">Real State Agent MVP</p>
-        <h1>Technical scaffold ready for backend, frontend and shared packages.</h1>
-        <p className="summary">
-          This step only validates the monorepo foundation. Supabase, OpenClaw, tools and
-          advanced UI will be layered on top in later phases.
-        </p>
-        <div className="status-row">
-          <span className={`status-pill status-${status}`}>
-            {status === "online" ? "Agent Core online" : status === "offline" ? "Agent Core offline" : "Checking core"}
-          </span>
-          <span className="status-pill status-neutral">Web chat on port {appMetadata.webChatPort}</span>
-        </div>
-      </section>
+      <section className="chat-card">
+        <header className="chat-header">
+          <div className="agent-identity">
+            <div className="agent-avatar" aria-hidden="true">
+              C
+            </div>
 
-      <section className="grid">
-        <article className="panel">
-          <h2>Workspace</h2>
-          <ul>
-            <li>`apps/agent-core`</li>
-            <li>`apps/web-chat`</li>
-            <li>`packages/shared`</li>
-            <li>`openclaw-workspace`</li>
-            <li>`supabase`</li>
-          </ul>
-        </article>
+            <div>
+              <p className="eyebrow">Asesor inmobiliario</p>
+              <h1>Carlos</h1>
 
-        <article className="panel">
-          <h2>Shared contract</h2>
-          <p>Sales stages exported from `packages/shared`:</p>
-          <ul>
-            {salesStages.map((stage) => (
-              <li key={stage}>{stage}</li>
-            ))}
-          </ul>
-        </article>
+              <div className="connection-status">
+                <span
+                  className={`status-dot status-${healthStatus}`}
+                />
 
-        <article className="panel">
-          <h2>Health snapshot</h2>
-          {health ? (
-            <dl className="health-list">
-              <div>
-                <dt>Service</dt>
-                <dd>{health.service}</dd>
+                <span>
+                  {healthStatus === "online"
+                    ? "Disponible"
+                    : healthStatus === "offline"
+                      ? "Sin conexión"
+                      : "Verificando conexión"}
+                </span>
               </div>
-              <div>
-                <dt>Status</dt>
-                <dd>{health.status}</dd>
+            </div>
+          </div>
+
+          <button
+            className="new-chat-button"
+            type="button"
+            onClick={startNewConversation}
+            disabled={isSending}
+          >
+            Nueva conversación
+          </button>
+        </header>
+
+        <section
+          className="messages"
+          aria-live="polite"
+          aria-label="Conversación con Carlos"
+        >
+          {messages.map((message) => (
+            <article
+              key={message.id}
+              className={`message-row message-${message.role}`}
+            >
+              <div className="message-bubble">
+                <MessageText text={message.text} />
+
+                {message.payloads
+                  ?.filter(
+                    (
+                      payload
+                    ): payload is Extract<
+                      PublicChatPayload,
+                      { type: "media" }
+                    > => payload.type === "media"
+                  )
+                  .map((payload) => (
+                    <a
+                      className="media-card"
+                      key={payload.url}
+                      href={payload.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <img
+                        src={payload.url}
+                        alt="Recurso de propiedad compartido por Carlos"
+                      />
+                    </a>
+                  ))}
               </div>
-              <div>
-                <dt>Timestamp</dt>
-                <dd>{health.timestamp}</dd>
+            </article>
+          ))}
+
+          {isSending ? (
+            <article className="message-row message-assistant">
+              <div className="message-bubble typing-bubble">
+                <span />
+                <span />
+                <span />
               </div>
-            </dl>
-          ) : (
-            <p>The frontend is ready even if the backend is not running yet.</p>
-          )}
-        </article>
+            </article>
+          ) : null}
+
+          <div ref={messagesEndRef} />
+        </section>
+
+        {errorMessage ? (
+          <div className="error-banner" role="alert">
+            <span>{errorMessage}</span>
+
+            <button
+              type="button"
+              onClick={() => setErrorMessage(null)}
+              aria-label="Cerrar mensaje de error"
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
+
+        <form
+          className="composer"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void sendMessage();
+          }}
+        >
+          <textarea
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                !event.shiftKey
+              ) {
+                event.preventDefault();
+                void sendMessage();
+              }
+            }}
+            maxLength={4000}
+            rows={1}
+            placeholder="Escribe qué propiedad estás buscando..."
+            aria-label="Mensaje para Carlos"
+            disabled={isSending}
+          />
+
+          <button
+            className="send-button"
+            type="submit"
+            disabled={!input.trim() || isSending}
+            aria-label="Enviar mensaje"
+          >
+            Enviar
+          </button>
+        </form>
+
+        <footer className="chat-footer">
+          Carlos puede ayudarte a buscar propiedades, comparar opciones
+          y revisar información disponible.
+        </footer>
       </section>
     </main>
   );

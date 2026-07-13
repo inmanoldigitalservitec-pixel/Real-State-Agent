@@ -110,6 +110,33 @@ curl -s \
 
 La respuesta devuelve un `sessionId` público. La interfaz debe conservarlo y enviarlo en los mensajes siguientes.
 
+## Interfaz Web de Carlos
+
+`apps/web-chat` ya contiene una interfaz conversacional funcional en React.
+
+Capacidades:
+
+- consulta `GET /public/health`;
+- envía mensajes a `POST /public/chat`;
+- conserva el `sessionId` público en `localStorage`;
+- reutiliza la sesión entre mensajes;
+- permite iniciar una conversación nueva;
+- muestra estado de conexión;
+- presenta estado de escritura;
+- maneja errores públicos;
+- convierte enlaces visibles en enlaces seguros;
+- muestra payloads de medios cuando Agent Core devuelve `type: "media"`;
+- incluye diseño responsive para escritorio y móvil.
+
+El frontend recibe la URL de Agent Core mediante:
+
+```env
+VITE_AGENT_CORE_URL=http://127.0.0.1:8787
+```
+
+Los archivos `.env.local` no se versionan. Las URLs de `trycloudflare.com` son temporales y deben mantenerse únicamente en configuración local.
+
+
 ## Documentacion Principal
 
 - [Getting Started](docs/getting-started.md)

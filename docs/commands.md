@@ -106,6 +106,81 @@ Smoke real:
 pnpm --filter @real-estate-agent/agent-core smoke:public-chat
 ```
 
+## Frontend Web
+
+Configurar localmente la URL del backend:
+
+```bash
+cat > apps/web-chat/.env.local <<'EOF'
+VITE_AGENT_CORE_URL=http://127.0.0.1:8787
+EOF
+```
+
+Para usar un Quick Tunnel temporal del backend:
+
+```bash
+cat > apps/web-chat/.env.local <<'EOF'
+VITE_AGENT_CORE_URL=https://BACKEND-TEMPORAL.trycloudflare.com
+EOF
+```
+
+Iniciar Vite:
+
+```bash
+pnpm --filter @real-estate-agent/web-chat dev -- --host 127.0.0.1
+```
+
+Abrir localmente:
+
+```text
+http://127.0.0.1:5173
+```
+
+Validar:
+
+```bash
+pnpm --filter @real-estate-agent/web-chat typecheck
+pnpm --filter @real-estate-agent/web-chat build
+```
+
+## Quick Tunnel Temporal
+
+Backend:
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:8787
+```
+
+Frontend:
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:5173
+```
+
+La URL del frontend debe agregarse a la allowlist del backend:
+
+```env
+PUBLIC_CHAT_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,https://FRONTEND-TEMPORAL.trycloudflare.com
+```
+
+Después de modificar el `.env`, reinicia Agent Core.
+
+Orden operativo completo:
+
+```text
+1. OpenClaw Gateway
+2. Agent Core
+3. Tunnel del backend
+4. Configurar VITE_AGENT_CORE_URL
+5. Frontend Vite
+6. Tunnel del frontend
+7. Agregar origen del frontend a PUBLIC_CHAT_ALLOWED_ORIGINS
+8. Reiniciar Agent Core
+```
+
+Las URLs `trycloudflare.com` cambian al reiniciar cada túnel.
+
+
 ## Tests
 
 ```bash

@@ -1,5 +1,77 @@
 # Troubleshooting
 
+## El Frontend Muestra “Sin conexión”
+
+Verifica que `VITE_AGENT_CORE_URL` apunte al backend correcto:
+
+```bash
+cat apps/web-chat/.env.local
+```
+
+Prueba el health:
+
+```bash
+BACKEND_URL=$(
+  grep '^VITE_AGENT_CORE_URL=' apps/web-chat/.env.local |
+  cut -d= -f2-
+)
+
+curl -s "$BACKEND_URL/public/health" | python3 -m json.tool
+```
+
+El frontend debe consultar:
+
+```text
+/public/health
+```
+
+No la ruta antigua `/health`.
+
+Después de modificar `.env.local`, reinicia Vite.
+
+## El Frontend Abre Pero El Chat Falla Por CORS
+
+El origen exacto del frontend debe aparecer en:
+
+```env
+PUBLIC_CHAT_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,https://FRONTEND-TEMPORAL.trycloudflare.com
+```
+
+Después reinicia Agent Core.
+
+No agregues un slash al final del origen.
+
+## La URL Temporal Muestra `404 Not Found`
+
+Si abres la URL raíz del túnel del backend:
+
+```text
+https://BACKEND-TEMPORAL.trycloudflare.com/
+```
+
+un `404` es normal porque Agent Core no expone una página en `/`.
+
+Rutas válidas:
+
+```text
+/public/health
+/public/chat
+```
+
+La URL que presenta la interfaz es la del túnel del frontend, no la del backend.
+
+## La URL Temporal Dejó de Funcionar
+
+Los Quick Tunnels solo existen mientras el proceso `cloudflared` permanece activo.
+
+Al reiniciar el túnel:
+
+- se genera una URL nueva;
+- debes actualizar `VITE_AGENT_CORE_URL` si cambió el backend;
+- debes actualizar `PUBLIC_CHAT_ALLOWED_ORIGINS` si cambió el frontend;
+- debes reiniciar Vite y Agent Core cuando corresponda.
+
+
 ## Public Health Responde Pero `/public/chat` Devuelve 500
 
 Síntoma:
