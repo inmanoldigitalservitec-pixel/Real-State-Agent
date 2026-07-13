@@ -12,3 +12,7 @@ dist/
 !.env.example
 .DS_Store
 __MACOSX/
+
+# OpenClaw local runtime state
+openclaw-workspace/.openclaw/
+openclaw-workspace/openclaw-workspace-state.json
