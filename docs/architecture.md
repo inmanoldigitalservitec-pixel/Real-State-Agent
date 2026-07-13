@@ -2,72 +2,77 @@
 
 ## Vista General
 
+El sistema tiene dos fronteras HTTP separadas:
+
 ```text
-Usuario
-  -> Carlos / OpenClaw
+Interfaz web
+  -> Agent Core /public/*
+  -> OpenClaw CLI
+  -> Carlos / real-estate-agent
   -> plugin real-estate-tools
-  -> agent-core HTTP
+  -> Agent Core /internal/*
   -> servicios de dominio
   -> repositorios
   -> Supabase
 ```
 
-## Responsabilidades
-
-### OpenClaw
-
-OpenClaw ejecuta la conversacion y expone tools al agente `real-estate-agent`. No es la fuente de verdad y no debe acceder a Supabase directamente.
-
-Contenido relevante:
-
-- `openclaw-workspace/IDENTITY.md`
-- `openclaw-workspace/SOUL.md`
-- `openclaw-workspace/TOOLS.md`
-- `openclaw-workspace/skills/real-estate-sales-advisor/SKILL.md`
-- `openclaw-workspace/plugins/real-estate-tools`
-
-### Plugin `real-estate-tools`
-
-Vive en:
+El flujo directo de Carlos continúa siendo:
 
 ```text
-openclaw-workspace/plugins/real-estate-tools
+Usuario
+  -> Carlos / OpenClaw
+  -> plugin real-estate-tools
+  -> Agent Core /internal/*
+  -> servicios de dominio
+  -> repositorios
+  -> Supabase
+```
+
+## Frontera Pública
+
+La interfaz consume solamente:
+
+```text
+GET  /public/health
+POST /public/chat
 ```
 
 Responsabilidades:
 
-- declarar tools para OpenClaw;
-- validar argumentos visibles al modelo;
-- resolver contexto confiable del agente y sesion;
-- llamar a `agent-core` por HTTP;
-- aplicar logging seguro y redaccion;
-- preservar aislamiento de `real-estate-agent`.
+- validar el contrato web;
+- generar o reutilizar un `sessionId` público;
+- construir internamente la sesión de OpenClaw;
+- ejecutar el agente fijo `real-estate-agent`;
+- normalizar texto y medios;
+- filtrar URLs locales o inseguras;
+- ocultar metadata interna;
+- aplicar CORS, rate limit, concurrencia, timeout y headers de seguridad.
 
-Tools actuales:
-
-- `agent_core_health`
-- `search_properties`
-- `get_property_assets`
-
-### Agent Core
-
-Vive en:
+La sesión interna se construye exclusivamente en Agent Core:
 
 ```text
-apps/agent-core
+agent:real-estate-agent:web-<sessionId>
 ```
 
-Responsabilidades:
+El navegador nunca puede enviar ni decidir:
 
-- autenticacion de rutas internas;
-- validacion de contratos;
-- reglas de negocio;
-- presentacion segura de DTOs;
-- conversacion y memoria;
-- leads, visitas y handoff;
-- acceso a Supabase mediante servicios y repositorios.
+```text
+sessionKey
+agentId
+provider
+model
+usage
+tokens
+workspaceDir
+runId
+systemPromptReport
+```
 
-Rutas internas principales:
+## Frontera Interna
+
+Las rutas `/internal/*` continúan protegidas con Bearer token y son consumidas por el plugin `real-estate-tools`.
+
+Rutas principales:
 
 ```text
 POST /internal/properties/resolve-reference
@@ -87,53 +92,128 @@ POST /internal/visits
 POST /internal/handoffs
 ```
 
-### Packages Shared
+## OpenClaw Agent Client
 
-Vive en:
-
-```text
-packages/shared
-```
-
-Contiene schemas Zod, DTOs, enums, contratos de entrada/salida y metadata compartida.
-
-Antes de crear tipos nuevos, revisa `packages/shared/src/index.ts`.
-
-### Supabase
-
-Vive en:
+Archivo:
 
 ```text
-supabase
+apps/agent-core/src/integrations/openclaw/openclaw-agent.client.ts
 ```
 
-Supabase es la fuente de verdad para:
+Características:
 
-- inventario;
-- desarrollos;
-- unidades/listings;
-- medios y documentos;
-- conversaciones;
-- leads;
-- visitas;
-- handoffs;
-- eventos.
+- usa `spawn`, nunca `exec`;
+- pasa argumentos separados;
+- usa un agente fijo;
+- aplica timeout;
+- limita stdout y stderr;
+- valida JSON con Zod;
+- extrae únicamente contenido visible;
+- usa `result.meta.finalAssistantVisibleText` como fallback;
+- nunca devuelve el JSON completo de OpenClaw.
+
+El CLI real puede devolver:
+
+```json
+{
+  "text": "Respuesta visible",
+  "mediaUrl": null
+}
+```
+
+Por eso el schema interno acepta `null` para esos campos.
+
+## Public Chat Service
+
+Archivo:
+
+```text
+apps/agent-core/src/services/public-chat.service.ts
+```
+
+Responsabilidades:
+
+- generar UUID público;
+- reutilizar sesiones válidas;
+- llamar al cliente OpenClaw;
+- construir una respuesta estable;
+- permitir solamente URLs HTTP o HTTPS públicas;
+- rechazar `file://`, localhost, loopback, redes privadas y URLs con credenciales.
+
+## Middleware Público
+
+Archivo:
+
+```text
+apps/agent-core/src/middleware/public-security.ts
+```
+
+Controles:
+
+- allowlist CORS;
+- límite real del body en bytes;
+- rate limit en memoria;
+- concurrencia máxima;
+- timeout;
+- request ID;
+- `X-Content-Type-Options: nosniff`;
+- `Referrer-Policy: no-referrer`;
+- `Cache-Control: no-store`.
+
+Con `PUBLIC_CHAT_TRUST_PROXY=false`, no se confía en headers de IP enviados por el cliente.
+
+## OpenClaw
+
+OpenClaw ejecuta la conversación y expone tools al agente `real-estate-agent`. No es la fuente de verdad y no accede directamente a Supabase.
+
+Contenido relevante:
+
+```text
+openclaw-workspace/IDENTITY.md
+openclaw-workspace/SOUL.md
+openclaw-workspace/TOOLS.md
+openclaw-workspace/skills/real-estate-sales-advisor/SKILL.md
+openclaw-workspace/plugins/real-estate-tools
+```
+
+## Plugin `real-estate-tools`
+
+Responsabilidades:
+
+- declarar tools;
+- validar argumentos;
+- resolver contexto confiable;
+- llamar a `/internal/*`;
+- aplicar logging seguro;
+- preservar el aislamiento del agente.
+
+Tools actuales:
+
+```text
+agent_core_health
+search_properties
+get_property_assets
+```
+
+## Packages Shared
+
+`packages/shared` contiene los contratos públicos e internos.
+
+Contrato público:
+
+```text
+packages/shared/src/public-chat.ts
+```
+
+## Supabase
+
+Supabase es la fuente de verdad para inventario, unidades, medios, documentos, conversaciones, leads, visitas, handoffs y eventos.
 
 ## Reglas de Frontera
 
-- OpenClaw nunca consulta Supabase directamente.
-- El modelo no recibe ni debe revelar UUIDs, tokens, endpoints internos o detalles de tablas.
-- Toda accion de negocio pasa por `agent-core`.
-- El plugin no debe implementar reglas comerciales que ya vivan en `agent-core`.
-- `real-estate-agent` debe permanecer aislado de `main`.
-
-## Flujo de Busqueda de Propiedades
-
-1. El usuario pide propiedades.
-2. Carlos usa `search_properties`.
-3. El plugin valida argumentos y contexto.
-4. El plugin llama `POST /internal/properties/search`.
-5. `agent-core` valida, busca en repositorios y actualiza estado conversacional.
-6. El plugin devuelve resultados seguros al modelo.
-7. Carlos presenta opciones, recomienda una y, si corresponde, usa `get_property_assets`.
-
+- El navegador solo consume `/public/*`.
+- OpenClaw Gateway no se expone públicamente.
+- `/internal/*` requiere autenticación.
+- OpenClaw no consulta Supabase directamente.
+- Toda regla comercial vive en Agent Core.
+- `real-estate-agent` permanece aislado de `main`.

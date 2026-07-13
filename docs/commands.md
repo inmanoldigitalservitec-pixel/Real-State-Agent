@@ -1,8 +1,8 @@
 # Comandos
 
-Ejecuta los comandos desde la raiz salvo que se indique otra ruta.
+Ejecuta los comandos desde la raíz salvo que se indique otra ruta.
 
-## Instalacion
+## Instalación
 
 ```bash
 pnpm install
@@ -16,14 +16,14 @@ Todo el workspace:
 pnpm dev
 ```
 
-Solo `agent-core`:
+Solo Agent Core:
 
 ```bash
 pnpm dev:core
 pnpm --filter @real-estate-agent/agent-core dev
 ```
 
-Solo `web-chat`:
+Solo frontend:
 
 ```bash
 pnpm dev:web
@@ -36,14 +36,74 @@ pnpm build
 pnpm typecheck
 ```
 
-Paquetes concretos:
+Agent Core:
 
 ```bash
 pnpm --filter @real-estate-agent/shared build
 pnpm --filter @real-estate-agent/agent-core build
 pnpm --filter @real-estate-agent/agent-core typecheck
+```
+
+Plugin:
+
+```bash
 pnpm --filter @real-estate-agent/openclaw-real-estate-tools build
 pnpm --filter @real-estate-agent/openclaw-real-estate-tools typecheck
+```
+
+## Iniciar el Backend Público
+
+Terminal 1:
+
+```bash
+openclaw gateway --port 18789
+```
+
+Terminal 2:
+
+```bash
+cd "/Users/inma/Documents/Real State Agent"
+pnpm --filter @real-estate-agent/shared build
+pnpm --filter @real-estate-agent/agent-core dev
+```
+
+Validar salud pública:
+
+```bash
+curl -s http://127.0.0.1:8787/public/health | python3 -m json.tool
+```
+
+## Public Chat
+
+Primera solicitud:
+
+```bash
+curl -s \
+  -X POST \
+  http://127.0.0.1:8787/public/chat \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "message": "Busco un apartamento de 3 habitaciones en Villa Mella"
+  }' | python3 -m json.tool
+```
+
+Segunda solicitud con la misma sesión:
+
+```bash
+curl -s \
+  -X POST \
+  http://127.0.0.1:8787/public/chat \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "sessionId": "<session-id-devuelto>",
+    "message": "Mi presupuesto máximo es RD$8,000,000"
+  }' | python3 -m json.tool
+```
+
+Smoke real:
+
+```bash
+pnpm --filter @real-estate-agent/agent-core smoke:public-chat
 ```
 
 ## Tests
@@ -51,71 +111,54 @@ pnpm --filter @real-estate-agent/openclaw-real-estate-tools typecheck
 ```bash
 pnpm --filter @real-estate-agent/agent-core test:unit
 pnpm --filter @real-estate-agent/agent-core test:integration
-pnpm --filter @real-estate-agent/agent-core smoke:supabase
-pnpm --filter @real-estate-agent/agent-core smoke:internal-api
-pnpm --filter @real-estate-agent/openclaw-real-estate-tools test
+pnpm --filter @real-estate-agent/agent-core test
 ```
 
-## Agent Core
+Smokes:
 
-Health publico:
+```bash
+pnpm --filter @real-estate-agent/agent-core smoke:supabase
+pnpm --filter @real-estate-agent/agent-core smoke:internal-api
+pnpm --filter @real-estate-agent/agent-core smoke:conversation-bootstrap
+pnpm --filter @real-estate-agent/agent-core smoke:public-chat
+```
+
+## Agent Core Interno
+
+Health general:
 
 ```bash
 curl http://127.0.0.1:8787/health
 ```
 
-Para rutas internas, envia siempre el token:
+Rutas internas:
 
 ```bash
-curl -H "Authorization: Bearer $AGENT_INTERNAL_API_KEY" \
+curl \
+  -H "Authorization: Bearer $AGENT_INTERNAL_API_KEY" \
   http://127.0.0.1:8787/internal/companies/<company-id>/information
 ```
 
-Nota: `/health` es la verificacion simple porque no requiere datos reales.
+## OpenClaw
 
-## OpenClaw Gateway
-
-Desde el workspace:
+Listar agentes:
 
 ```bash
-cd "/Users/inma/Documents/Real State Agent/openclaw-workspace"
-./scripts/start-gateway.sh
-./scripts/stop-gateway.sh
-./scripts/check-openclaw.sh
+openclaw agents list
 ```
 
-Comando directo equivalente cuando aplica:
-
-```bash
-openclaw gateway --port 18789
-```
-
-## Carlos
-
-Sesion nueva:
-
-```bash
-carlos
-```
-
-Sesion fija:
-
-```bash
-carlos-fijo
-```
-
-CLI JSON para pruebas automatizables:
+Prueba directa:
 
 ```bash
 openclaw agent \
   --agent real-estate-agent \
   --session-key "agent:real-estate-agent:test-$(date +%s)" \
-  --message "Usa search_properties con location Santo Domingo, bedrooms 3 y propertyType apartment. Presenta las propiedades encontradas." \
+  --message "Hola Carlos" \
   --json \
-  --timeout 240
+  --timeout 120
 ```
 
-## OpenClaw Skills
+Skills:
 
 ```bash
 cd "/Users/inma/Documents/Real State Agent/openclaw-workspace"

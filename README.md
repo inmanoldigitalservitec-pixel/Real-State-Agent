@@ -62,6 +62,54 @@ set +a
 openclaw tui --session "agent:real-estate-agent:carlos-$(date +%Y%m%d%H%M%S)"
 ```
 
+## Backend Público de Chat
+
+El repositorio incluye un backend público para que una interfaz web converse con Carlos sin exponer OpenClaw ni las rutas internas.
+
+Endpoints:
+
+```text
+GET  /public/health
+POST /public/chat
+```
+
+Flujo:
+
+```text
+Navegador
+  -> Agent Core /public/chat
+  -> OpenClaw
+  -> Carlos / real-estate-agent
+  -> plugin real-estate-tools
+  -> Agent Core /internal/*
+  -> Supabase
+```
+
+El navegador nunca recibe ni controla:
+
+- `sessionKey`;
+- `agentId`;
+- tokens;
+- proveedor o modelo;
+- usage;
+- rutas locales;
+- metadata interna de OpenClaw;
+- credenciales de Supabase.
+
+Ejemplo:
+
+```bash
+curl -s \
+  -X POST \
+  http://127.0.0.1:8787/public/chat \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "message": "Busco un apartamento de 3 habitaciones en Villa Mella"
+  }' | python3 -m json.tool
+```
+
+La respuesta devuelve un `sessionId` público. La interfaz debe conservarlo y enviarlo en los mensajes siguientes.
+
 ## Documentacion Principal
 
 - [Getting Started](docs/getting-started.md)
