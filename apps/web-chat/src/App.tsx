@@ -10,12 +10,20 @@ const agentCoreUrl = (
 ).replace(/\/+$/, "");
 
 const sessionStorageKey = "real-estate-agent-public-session-id";
+const urlPattern = /(https?:\/\/[^\s]+)/g;
+const imageExtensionPattern = /\.(?:avif|gif|jpe?g|png|webp)$/i;
+const trailingUrlPunctuationPattern = /[),.;!?]+$/;
 
 type ChatMessage = {
   id: string;
   role: "assistant" | "user";
   text: string;
   payloads?: PublicChatPayload[];
+};
+
+type ParsedUrl = {
+  url: string;
+  trailingText: string;
 };
 
 function createMessageId(): string {
@@ -46,29 +54,147 @@ function clearSavedSessionId(): void {
   }
 }
 
-function MessageText({ text }: { text: string }) {
-  const parts = useMemo(
-    () => text.split(/(https?:\/\/[^\s]+)/g),
-    [text]
+function parseUrlToken(value: string): ParsedUrl {
+  const trailingText = value.match(trailingUrlPunctuationPattern)?.[0] ?? "";
+
+  return {
+    url: trailingText ? value.slice(0, -trailingText.length) : value,
+    trailingText
+  };
+}
+
+function isLikelyImageUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const format = url.searchParams.get("format")?.toLowerCase();
+
+    return (
+      imageExtensionPattern.test(url.pathname) ||
+      format === "avif" ||
+      format === "gif" ||
+      format === "jpg" ||
+      format === "jpeg" ||
+      format === "png" ||
+      format === "webp"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function ImageCard({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <a href={url} target="_blank" rel="noreferrer">
+        Ver imagen
+      </a>
+    );
+  }
+
+  return (
+    <a
+      className="media-card"
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      aria-label="Abrir imagen en una pestaña nueva"
+    >
+      <img
+        src={url}
+        alt="Imagen de una propiedad compartida por Carlos"
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </a>
   );
+}
+
+function MessageText({
+  text,
+  structuredMediaUrls
+}: {
+  text: string;
+  structuredMediaUrls: Set<string>;
+}) {
+  const parts = useMemo(() => text.split(urlPattern), [text]);
 
   return (
     <div className="message-text">
-      {parts.map((part, index) =>
-        /^https?:\/\//i.test(part) ? (
+      {parts.map((part, index) => {
+        if (!/^https?:\/\//i.test(part)) {
+          return <span key={`${part}-${index}`}>{part}</span>;
+        }
+
+        const { url, trailingText } = parseUrlToken(part);
+        const alreadyRendered = structuredMediaUrls.has(url);
+
+        return (
+          <span key={`${part}-${index}`}>
+            {alreadyRendered ? null : isLikelyImageUrl(url) ? (
+              <ImageCard url={url} />
+            ) : (
+              <a href={url} target="_blank" rel="noreferrer">
+                Ver enlace
+              </a>
+            )}
+            {trailingText ? <span>{trailingText}</span> : null}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function MessageContent({ message }: { message: ChatMessage }) {
+  const mediaUrls = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (message.payloads ?? [])
+            .filter(
+              (
+                payload
+              ): payload is Extract<
+                PublicChatPayload,
+                { type: "media" }
+              > => payload.type === "media"
+            )
+            .map((payload) => payload.url)
+        )
+      ),
+    [message.payloads]
+  );
+
+  const structuredMediaUrls = useMemo(
+    () => new Set(mediaUrls),
+    [mediaUrls]
+  );
+
+  return (
+    <>
+      <MessageText
+        text={message.text}
+        structuredMediaUrls={structuredMediaUrls}
+      />
+
+      {mediaUrls.map((url) =>
+        isLikelyImageUrl(url) ? (
+          <ImageCard key={url} url={url} />
+        ) : (
           <a
-            key={`${part}-${index}`}
-            href={part}
+            className="resource-link"
+            key={url}
+            href={url}
             target="_blank"
             rel="noreferrer"
           >
-            Ver enlace
+            Ver recurso
           </a>
-        ) : (
-          <span key={`${part}-${index}`}>{part}</span>
         )
       )}
-    </div>
+    </>
   );
 }
 
@@ -280,31 +406,7 @@ export default function App() {
               className={`message-row message-${message.role}`}
             >
               <div className="message-bubble">
-                <MessageText text={message.text} />
-
-                {message.payloads
-                  ?.filter(
-                    (
-                      payload
-                    ): payload is Extract<
-                      PublicChatPayload,
-                      { type: "media" }
-                    > => payload.type === "media"
-                  )
-                  .map((payload) => (
-                    <a
-                      className="media-card"
-                      key={payload.url}
-                      href={payload.url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <img
-                        src={payload.url}
-                        alt="Recurso de propiedad compartido por Carlos"
-                      />
-                    </a>
-                  ))}
+                <MessageContent message={message} />
               </div>
             </article>
           ))}
