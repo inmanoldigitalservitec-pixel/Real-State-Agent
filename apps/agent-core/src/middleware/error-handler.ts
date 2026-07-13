@@ -105,6 +105,18 @@ export function installErrorHandler(app: Hono) {
   app.onError((error, context) => {
     const failure = toApiFailure(error);
 
-    return context.json(failure.body, failure.status as 400 | 401 | 404 | 409 | 413 | 500 | 504);
+    return context.json(
+      failure.body,
+      failure.status as
+        | 400
+        | 401
+        | 403
+        | 404
+        | 409
+        | 413
+        | 429
+        | 500
+        | 504
+    );
   });
 }
