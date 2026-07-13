@@ -6,8 +6,7 @@ import {
 } from "@real-estate-agent/shared";
 
 const agentCoreUrl = (
-  import.meta.env.VITE_AGENT_CORE_URL ??
-  "http://127.0.0.1:8787"
+  import.meta.env.VITE_AGENT_CORE_URL ?? ""
 ).replace(/\/+$/, "");
 
 const sessionStorageKey = "real-estate-agent-public-session-id";
