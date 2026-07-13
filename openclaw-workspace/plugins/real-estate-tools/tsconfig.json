@@ -1,0 +1,16 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "typeRoots": ["../../../node_modules/.pnpm/node_modules/@types"],
+    "paths": {
+      "vitest": ["../../../node_modules/.pnpm/node_modules/vitest"]
+    }
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.ts"]
+}

@@ -1,0 +1,33 @@
+{
+  "name": "@real-estate-agent/openclaw-real-estate-tools",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "OpenClaw tool plugin for Real State Agent.",
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "../../../node_modules/.pnpm/node_modules/.bin/tsc -p tsconfig.json",
+    "typecheck": "../../../node_modules/.pnpm/node_modules/.bin/tsc -p tsconfig.json --noEmit && ../../../node_modules/.pnpm/node_modules/.bin/tsc -p tsconfig.test.json --noEmit",
+    "test": "../../../node_modules/.pnpm/node_modules/.bin/vitest run",
+    "clean": "rm -rf dist .vitest",
+    "plugin:build": "openclaw plugins build --root . --entry ./dist/src/index.js",
+    "plugin:validate": "openclaw plugins validate --root . --entry ./dist/src/index.js",
+    "smoke:health": "../../../node_modules/.pnpm/node_modules/.bin/tsx scripts/smoke-agent-core-health.ts",
+    "smoke:search-properties": "../../../node_modules/.pnpm/node_modules/.bin/tsx scripts/smoke-search-properties.ts"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/src/index.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "tsx": "^4.23.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

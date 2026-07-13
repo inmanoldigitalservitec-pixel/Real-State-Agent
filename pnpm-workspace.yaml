@@ -1,5 +1,6 @@
 packages:
   - apps/*
   - packages/*
+  - openclaw-workspace/plugins/*
 allowBuilds:
   esbuild: true

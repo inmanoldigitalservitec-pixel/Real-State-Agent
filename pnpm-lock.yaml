@@ -25,6 +25,9 @@ importers:
       hono:
         specifier: ^4.9.8
         version: 4.12.29
+      zod:
+        specifier: ^4.1.5
+        version: 4.4.3
     devDependencies:
       '@types/node':
         specifier: ^24.3.1
@@ -69,6 +72,21 @@ importers:
       vite:
         specifier: ^7.1.3
         version: 7.3.6(@types/node@24.13.3)(tsx@4.23.0)
+
+  openclaw-workspace/plugins/real-estate-tools:
+    devDependencies:
+      '@types/node':
+        specifier: ^24.13.3
+        version: 24.13.3
+      tsx:
+        specifier: ^4.23.0
+        version: 4.23.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@24.13.3)(tsx@4.23.0)
 
   packages/shared:
     dependencies:

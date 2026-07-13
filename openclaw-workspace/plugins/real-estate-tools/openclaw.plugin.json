@@ -1,0 +1,57 @@
+{
+  "id": "real-estate-tools",
+  "name": "Real Estate Tools",
+  "description": "Private agent-core integration tools for the Real State Agent workspace.",
+  "version": "0.2.0",
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "baseUrl": {
+        "type": "string",
+        "description": "Base URL for the local agent-core HTTP service."
+      },
+      "internalApiKeyEnvVar": {
+        "type": "string",
+        "description": "Environment variable name holding the internal bearer token."
+      },
+      "companyId": {
+        "type": "string",
+        "description": "Private company UUID used for internal conversation operations."
+      },
+      "channel": {
+        "type": "string",
+        "enum": [
+          "web"
+        ],
+        "description": "Internal conversation channel. Must match the backend channel enum."
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "maximum": 30000,
+        "description": "Default HTTP timeout for agent-core requests."
+      },
+      "logLevel": {
+        "type": "string",
+        "enum": [
+          "debug",
+          "info",
+          "warn",
+          "error"
+        ],
+        "description": "Sanitized plugin log level."
+      }
+    }
+  },
+  "contracts": {
+    "tools": [
+      "agent_core_health",
+      "search_properties",
+      "get_property_assets"
+    ]
+  }
+}
