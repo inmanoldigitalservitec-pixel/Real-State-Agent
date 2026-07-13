@@ -10,6 +10,8 @@
     "dev:web": "pnpm --filter @real-estate-agent/shared build && pnpm --filter @real-estate-agent/web-chat dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "clean": "pnpm -r clean"
+    "clean": "pnpm -r clean",
+    "dev:public-chat": "bash scripts/dev-public-chat.sh",
+    "logs:gateway": "bash scripts/logs-gateway.sh"
   }
 }
