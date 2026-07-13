@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feat/public-web-chat-backend
+      - feat/web-chat-responsive-refresh
   pull_request:
   workflow_dispatch:
 
