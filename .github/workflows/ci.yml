@@ -20,6 +20,8 @@ jobs:
     name: Typecheck, test and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      AGENT_INTERNAL_API_KEY: ci-test-internal-api-key
 
     steps:
       - name: Checkout repository
