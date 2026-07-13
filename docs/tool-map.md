@@ -4,6 +4,8 @@
 
 Definir qué acción necesita cada tipo de consulta del cliente para que las fases futuras implementen tools coherentes con el comportamiento conversacional.
 
+Nota de estado: este documento es un mapa funcional del MVP completo. No todas las tools listadas aqui estan expuestas actualmente a Carlos. Para la lista runtime vigente, usa [Tools y Capacidades](tools-and-capabilities.md).
+
 ## Tools oficiales del MVP
 
 ```text

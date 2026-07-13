@@ -4,6 +4,8 @@
 
 Definir los escenarios oficiales de prueba de la Fase 1 para validar comportamiento, memoria, assets, transición de estados y necesidad de herramientas futuras.
 
+Nota de estado: algunos escenarios mencionan tools futuras o capacidades disponibles en `agent-core` pero no expuestas aun a Carlos. Para saber que puede invocar Carlos hoy, consulta [Tools y Capacidades](tools-and-capabilities.md).
+
 ## Escenarios oficiales
 
 ### ID: SC-01
